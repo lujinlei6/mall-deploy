@@ -1,0 +1,78 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql
+  namespace: kube-mall
+spec:
+  serviceName: mysql
+  replicas: 1                      # 实验环境单实例；生产用 MySQL 主从/云 RDS
+  selector:
+    matchLabels: {app: mysql}
+  template:
+    metadata:
+      labels: {app: mysql}
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: mysql
+          image: harbor.lab/library/mysql:8.0
+          args:
+            - --character-set-server=utf8mb4
+            - --collation-server=utf8mb4_general_ci
+            # 官方 mall4j compose 同款参数：表名大小写不敏感。
+            # 注意：这个参数只在数据目录首次初始化时生效，中途加会起不来（库里已有数据时别改）
+            - --lower_case_table_names=1
+            - --default-time-zone=+08:00
+          ports:
+            - containerPort: 3306
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef: {name: mysql-secret, key: root-password}
+            - name: MYSQL_DATABASE
+              value: yami_shops
+            # 官方 mysql 镜像会自动创建该用户，并授予 MYSQL_DATABASE（yami_shops）的全部权限
+            - name: MYSQL_USER
+              value: mall4j
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef: {name: mysql-secret, key: user-password}
+            - name: TZ
+              value: Asia/Shanghai
+          resources:
+            requests: {cpu: 250m, memory: 512Mi}
+            limits: {cpu: "1", memory: 1Gi}
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "mysqladmin ping -uroot -p\"$MYSQL_ROOT_PASSWORD\""]
+            initialDelaySeconds: 20
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "mysqladmin ping -uroot -p\"$MYSQL_ROOT_PASSWORD\""]
+            initialDelaySeconds: 60
+            periodSeconds: 15
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: nfs-client        # 第 7 章安装的 NFS 动态供给
+        resources:
+          requests:
+            storage: 5Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+  namespace: kube-mall
+spec:
+  selector: {app: mysql}
+  ports:
+    - name: mysql
+      port: 3306
+      targetPort: 3306

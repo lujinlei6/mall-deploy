@@ -1,0 +1,6 @@
+apiVersion: v2
+name: mall
+description: mall4j 电商前后端（Spring Boot + Vue）的 Kubernetes 部署 Chart
+type: application
+version: 1.0.0            # Chart 版本（打包格式、模板结构变化时升）
+appVersion: "1.0.0"       # 应用版本（跟随业务版本，仅作展示）

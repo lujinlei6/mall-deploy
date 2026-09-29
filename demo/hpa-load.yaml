@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hpa-load
+  namespace: kube-mall
+  labels:
+    app: hpa-load
+spec:
+  restartPolicy: Never
+  containers:
+    - name: curl
+      image: harbor.lab/library/curlimages/curl:latest
+      command: ["sh", "-c"]
+      args:
+        - |
+          end=$(( $(date +%s) + 900 ))
+          while [ $(date +%s) -lt $end ]; do
+            for i in 1 2 3 4; do
+              curl -s -o /dev/null -X POST http://mall4j-admin:8085/captcha/get \
+                -H 'Content-Type: application/json' \
+                -d '{"captchaType":"blockPuzzle"}' &
+            done
+            wait
+          done
+          echo "load finished"
+      resources:
+        requests: {cpu: 100m, memory: 64Mi}
+        limits:   {cpu: 200m, memory: 128Mi}

@@ -1,0 +1,28 @@
+{{- if and .Values.hpa.enabled .Values.backend.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: mall4j-admin
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: mall4j-admin
+    {{- include "mall.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: mall4j-admin
+  minReplicas: {{ .Values.hpa.minReplicas }}
+  maxReplicas: {{ .Values.hpa.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.hpa.targetCPUUtilizationPercentage }}
+  behavior:
+    scaleDown:
+      # 缩容冷却：避免刚扩容就缩回去来回抖动（默认 300s，这里压低方便演示）
+      stabilizationWindowSeconds: 120
+{{- end }}

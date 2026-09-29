@@ -1,0 +1,59 @@
+{{- if .Values.backend.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mall4j-admin
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: mall4j-admin
+    {{- include "mall.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.backend.replicas }}
+  selector:
+    matchLabels:
+      app: mall4j-admin
+  strategy:
+    rollingUpdate:
+      maxSurge: 1          # 先多起 1 个新 Pod
+      maxUnavailable: 0    # 旧 Pod 全部健康才下线 → 滚动更新期间不丢容量
+  template:
+    metadata:
+      labels:
+        app: mall4j-admin
+      annotations:
+        # ConfigMap 内容变化 → 这个注解值变化 → 触发滚动更新（配置即代码的常用技巧）
+        checksum/config: {{ include (print $.Template.BasePath "/backend-configmap.yaml") . | sha256sum }}
+    spec:
+      containers:
+        - name: mall4j-admin
+          image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8085
+          env:
+            - name: TZ
+              value: Asia/Shanghai
+            - name: SPRING_PROFILES_ACTIVE
+              value: docker      # 激活 mall4j 自带的 docker 档：连接信息全部从 MYSQL_*/REDIS_* 环境变量读
+            - name: JAVA_OPTS
+              value: {{ .Values.backend.javaOpts | quote }}
+          envFrom:
+            # ConfigMap：MYSQL_HOST / MYSQL_PORT / MYSQL_DATABASE / MYSQL_USERNAME /
+            #            REDIS_HOST / REDIS_PORT / REDIS_DATABASE
+            - configMapRef:
+                name: mall4j-config
+            # Secret：MYSQL_PASSWORD / SPRING_DATA_REDIS_PASSWORD
+            - secretRef:
+                name: mall4j-secrets
+          resources:
+            {{- toYaml .Values.backend.resources | nindent 12 }}
+          readinessProbe:
+            tcpSocket: {port: 8085}
+            initialDelaySeconds: 30
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket: {port: 8085}
+            initialDelaySeconds: 60
+            periodSeconds: 15
+{{- end }}

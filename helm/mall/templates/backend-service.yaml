@@ -1,0 +1,17 @@
+{{- if .Values.backend.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: mall4j-admin
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: mall4j-admin
+    {{- include "mall.labels" . | nindent 4 }}
+spec:
+  selector:
+    app: mall4j-admin
+  ports:
+    - name: http
+      port: 8085
+      targetPort: 8085
+{{- end }}

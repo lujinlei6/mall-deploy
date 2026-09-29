@@ -1,0 +1,58 @@
+# ============================================================
+# mall Chart 的可调参数：镜像版本、副本数、域名、HPA 阈值都在这里
+# 用法示例：
+#   helm upgrade --install mall . -n kube-mall \
+#     --set backend.image.tag=12 --set frontend.image.tag=12
+# ============================================================
+
+# ---------- 后端 mall4j-admin ----------
+backend:
+  enabled: true
+  image:
+    repository: harbor.lab/library/mall4j-admin
+    tag: "manual-1.0.0"          # ← Jenkins 每次构建用 --set 覆盖成构建号
+    pullPolicy: IfNotPresent     # 固定 tag + IfNotPresent：新 tag 必然拉新镜像
+  replicas: 2
+  javaOpts: "-Xms256m -Xmx768m -XX:+UseG1GC"
+  resources:
+    requests: {cpu: 250m, memory: 512Mi}
+    limits:   {cpu: "1",  memory: 1Gi}
+  config:                        # 渲染进 ConfigMap：mall4j docker 档直接读这些环境变量
+    mysqlHost: mysql.kube-mall.svc.cluster.local
+    mysqlPort: "3306"
+    mysqlDatabase: yami_shops
+    mysqlUsername: mall4j
+    redisHost: redis.kube-mall.svc.cluster.local
+    redisPort: "6379"
+    redisDatabase: "0"
+
+# ---------- 前端 mall4v ----------
+frontend:
+  enabled: true
+  image:
+    repository: harbor.lab/library/mall4v
+    tag: "manual-1.0.0"
+    pullPolicy: IfNotPresent
+  replicas: 2
+  resources:
+    requests: {cpu: 100m, memory: 128Mi}
+    limits:   {cpu: 500m, memory: 256Mi}
+
+# ---------- 敏感配置（渲染进 Secret）----------
+secrets:
+  mysqlPassword: "Mall@123456"
+  redisPassword: "Redis@123"
+
+# ---------- Ingress 统一入口 ----------
+ingress:
+  enabled: true
+  className: nginx
+  host: mall.lab                  # 浏览器访问的域名
+  apiPrefix: /api                # 后端接口前缀（与前端构建时注入的一致）
+
+# ---------- HPA 弹性伸缩 ----------
+hpa:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 4
+  targetCPUUtilizationPercentage: 60
