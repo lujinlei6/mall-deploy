@@ -20,13 +20,6 @@
 pipeline {
   agent any
 
-  parameters {
-    // 源码分支：可在 Jenkins 里改，不用动 Jenkinsfile
-    string(name: 'SOURCE_BRANCH', defaultValue: 'master', description: 'mall4j 源码仓库分支（SOURCE_TAG 留空时生效）')
-    // 可选的 Git 标签：填了则按该标签检出（优先于 SOURCE_BRANCH），留空则按分支检出一致
-    string(name: 'SOURCE_TAG', defaultValue: '', description: '要构建的 Git 标签（可选，如 v1.0.0）；留空则用 SOURCE_BRANCH')
-  }
-
   options {
     timestamps()
     ansiColor('xterm')
