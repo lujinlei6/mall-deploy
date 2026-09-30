@@ -2,32 +2,55 @@
 # mall Chart 的可调参数：镜像版本、副本数、域名、HPA 阈值都在这里
 # 用法示例：
 #   helm upgrade --install mall . -n kube-mall \
-#     --set backend.image.tag=12 --set frontend.image.tag=12
+#     --set backendAdmin.image.tag=12 --set frontendAdmin.image.tag=12
+#     --set backendApi.image.tag=12  --set frontendMall.image.tag=12
 # ============================================================
 
-# ---------- 后端 mall4j-admin ----------
-backend:
+# ---------- 后端 mall4j-admin（后台，端口 8085）----------
+# 前端 mall4v 的 nginx 通过 /api 反代到 Service 名 mall4j-admin
+backendAdmin:
   enabled: true
   image:
     repository: harbor.lab/library/mall4j-admin
-    tag: "manual-1.0.0"          # ← Jenkins 每次构建用 --set 覆盖成构建号
-    pullPolicy: IfNotPresent     # 固定 tag + IfNotPresent：新 tag 必然拉新镜像
+    tag: "manual-1.0.0"        # ← Jenkins 每次构建用 --set 覆盖成构建号
+    pullPolicy: IfNotPresent   # 固定 tag + IfNotPresent：新 tag 必然拉新镜像
   replicas: 2
   javaOpts: "-Xms256m -Xmx768m -XX:+UseG1GC"
   resources:
     requests: {cpu: 250m, memory: 512Mi}
     limits:   {cpu: "1",  memory: 1Gi}
-  config:                        # 渲染进 ConfigMap：mall4j docker 档直接读这些环境变量
-    mysqlHost: mysql.kube-mall.svc.cluster.local
-    mysqlPort: "3306"
-    mysqlDatabase: yami_shops
-    mysqlUsername: mall4j
-    redisHost: redis.kube-mall.svc.cluster.local
-    redisPort: "6379"
-    redisDatabase: "0"
 
-# ---------- 前端 mall4v ----------
-frontend:
+# ---------- 后端 mall4j-api（商城，端口 8086）----------
+# 前端 mall4uni 的 nginx 通过 /api 反代到 Service 名 mall4j-api
+backendApi:
+  enabled: true
+  image:
+    repository: harbor.lab/library/mall4j-api
+    tag: "manual-1.0.0"
+    pullPolicy: IfNotPresent
+  replicas: 2
+  javaOpts: "-Xms256m -Xmx768m -XX:+UseG1GC"
+  resources:
+    requests: {cpu: 250m, memory: 512Mi}
+    limits:   {cpu: "1",  memory: 1Gi}
+
+# ---------- 数据源（两个后端共用同一份 ConfigMap/Secret）----------
+config:                        # 渲染进 ConfigMap：mall4j docker 档直接读这些环境变量
+  mysqlHost: mysql.kube-mall.svc.cluster.local
+  mysqlPort: "3306"
+  mysqlDatabase: yami_shops
+  mysqlUsername: mall4j
+  redisHost: redis.kube-mall.svc.cluster.local
+  redisPort: "6379"
+  redisDatabase: "0"
+
+# ---------- 敏感配置（渲染进 Secret）----------
+secrets:
+  mysqlPassword: "Mall@123456"
+  redisPassword: "Redis@123"
+
+# ---------- 前端 mall4v（后台页面）----------
+frontendAdmin:
   enabled: true
   image:
     repository: harbor.lab/library/mall4v
@@ -38,19 +61,28 @@ frontend:
     requests: {cpu: 100m, memory: 128Mi}
     limits:   {cpu: 500m, memory: 256Mi}
 
-# ---------- 敏感配置（渲染进 Secret）----------
-secrets:
-  mysqlPassword: "Mall@123456"
-  redisPassword: "Redis@123"
+# ---------- 前端 mall4uni（商城页面）----------
+frontendMall:
+  enabled: true
+  image:
+    repository: harbor.lab/library/mall4uni
+    tag: "manual-1.0.0"
+    pullPolicy: IfNotPresent
+  replicas: 2
+  resources:
+    requests: {cpu: 100m, memory: 128Mi}
+    limits:   {cpu: 500m, memory: 256Mi}
 
 # ---------- Ingress 统一入口 ----------
+# /api 由前端 nginx 在容器内反代到各自后端，因此 Ingress 只需把域名路由到前端 Service，
+# 不再需要 /api 重写规则。两个前端各用一个域名。
 ingress:
   enabled: true
   className: nginx
-  host: mall.lab                  # 浏览器访问的域名
-  apiPrefix: /api                # 后端接口前缀（与前端构建时注入的一致）
+  adminHost: admin.mall.lab        # 浏览器访问后台（mall4v）
+  mallHost: mall.lab               # 浏览器访问商城（mall4uni）
 
-# ---------- HPA 弹性伸缩 ----------
+# ---------- HPA 弹性伸缩（两个后端都生效）----------
 hpa:
   enabled: true
   minReplicas: 2

@@ -1,17 +1,17 @@
-{{- if .Values.frontendAdmin.enabled }}
+{{- if .Values.frontendMall.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: mall4v
+  name: mall4uni
   namespace: {{ .Release.Namespace }}
   labels:
-    app: mall4v
+    app: mall4uni
     {{- include "mall.labels" . | nindent 4 }}
 spec:
-  replicas: {{ .Values.frontendAdmin.replicas }}
+  replicas: {{ .Values.frontendMall.replicas }}
   selector:
     matchLabels:
-      app: mall4v
+      app: mall4uni
   strategy:
     rollingUpdate:
       maxSurge: 1
@@ -19,18 +19,18 @@ spec:
   template:
     metadata:
       labels:
-        app: mall4v
+        app: mall4uni
     spec:
       containers:
-        - name: mall4v
-          image: "{{ .Values.frontendAdmin.image.repository }}:{{ .Values.frontendAdmin.image.tag }}"
-          imagePullPolicy: {{ .Values.frontendAdmin.image.pullPolicy }}
+        - name: mall4uni
+          image: "{{ .Values.frontendMall.image.repository }}:{{ .Values.frontendMall.image.tag }}"
+          imagePullPolicy: {{ .Values.frontendMall.image.pullPolicy }}
           ports:
             - name: http
               containerPort: 80
-          ## nginx 容器内把 /api 反代到 Service 名 mall4j-admin（镜像内置，无需额外配置）
+          ## nginx 容器内把 /api 反代到 Service 名 mall4j-api（镜像内置，无需额外配置）
           resources:
-            {{- toYaml .Values.frontendAdmin.resources | nindent 12 }}
+            {{- toYaml .Values.frontendMall.resources | nindent 12 }}
           readinessProbe:
             httpGet: {path: /, port: 80}
             initialDelaySeconds: 5

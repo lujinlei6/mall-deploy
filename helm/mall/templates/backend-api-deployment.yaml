@@ -1,0 +1,55 @@
+{{- if .Values.backendApi.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mall4j-api
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: mall4j-api
+    {{- include "mall.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.backendApi.replicas }}
+  selector:
+    matchLabels:
+      app: mall4j-api
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: mall4j-api
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/backend-configmap.yaml") . | sha256sum }}
+    spec:
+      containers:
+        - name: mall4j-api
+          image: "{{ .Values.backendApi.image.repository }}:{{ .Values.backendApi.image.tag }}"
+          imagePullPolicy: {{ .Values.backendApi.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8086
+          env:
+            - name: TZ
+              value: Asia/Shanghai
+            - name: SPRING_PROFILES_ACTIVE
+              value: docker
+            - name: JAVA_OPTS
+              value: {{ .Values.backendApi.javaOpts | quote }}
+          envFrom:
+            - configMapRef:
+                name: mall4j-config
+            - secretRef:
+                name: mall4j-secrets
+          resources:
+            {{- toYaml .Values.backendApi.resources | nindent 12 }}
+          readinessProbe:
+            tcpSocket: {port: 8086}
+            initialDelaySeconds: 30
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket: {port: 8086}
+            initialDelaySeconds: 60
+            periodSeconds: 15
+{{- end }}

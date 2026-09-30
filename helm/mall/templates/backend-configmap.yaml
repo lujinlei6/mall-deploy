@@ -8,10 +8,11 @@ metadata:
 data:
   # mall4j 镜像的 docker 档按「环境变量驱动」设计（键名与官方 compose 一致），
   # 这里直供键值；Spring Boot 环境变量优先级高于 jar 内配置，改配置不用重建镜像。
-  MYSQL_HOST: {{ .Values.backend.config.mysqlHost | quote }}
-  MYSQL_PORT: {{ .Values.backend.config.mysqlPort | quote }}
-  MYSQL_DATABASE: {{ .Values.backend.config.mysqlDatabase | quote }}
-  MYSQL_USERNAME: {{ .Values.backend.config.mysqlUsername | quote }}
-  REDIS_HOST: {{ .Values.backend.config.redisHost | quote }}
-  REDIS_PORT: {{ .Values.backend.config.redisPort | quote }}
-  REDIS_DATABASE: {{ .Values.backend.config.redisDatabase | quote }}
+  # 后台(mall4j-admin)与商城(mall4j-api)共用这份 ConfigMap。
+  MYSQL_HOST: {{ .Values.config.mysqlHost | quote }}
+  MYSQL_PORT: {{ .Values.config.mysqlPort | quote }}
+  MYSQL_DATABASE: {{ .Values.config.mysqlDatabase | quote }}
+  MYSQL_USERNAME: {{ .Values.config.mysqlUsername | quote }}
+  REDIS_HOST: {{ .Values.config.redisHost | quote }}
+  REDIS_PORT: {{ .Values.config.redisPort | quote }}
+  REDIS_DATABASE: {{ .Values.config.redisDatabase | quote }}

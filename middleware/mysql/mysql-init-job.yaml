@@ -1,0 +1,59 @@
+# ============================================================
+# mysql 初始化导入 Job：把 mall4j 的 yami_shop.sql 导入到已就绪的 mysql
+# 用法（在 mysql StatefulSet 就绪后执行两步）：
+#   ① 生成 SQL 的 ConfigMap（key 必须为 yami_shop.sql）：
+#      kubectl -n kube-mall create configmap mysql-init-sql \
+#        --from-file=middleware/mysql/yami_shop.sql
+#   ② 创建并运行导入 Job：
+#      kubectl apply -f middleware/mysql/mysql-init-job.yaml
+# 幂等：SQL 自带 CREATE DATABASE IF NOT EXISTS / DROP TABLE IF EXISTS，可安全重跑
+# 重跑：Job 完成后 spec 不可变，需先删除再重新执行 ①②：
+#      kubectl -n kube-mall delete job mysql-init
+# ============================================================
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mysql-init
+  namespace: kube-mall
+  labels:
+    app: mysql-init
+spec:
+  # 导入失败自动重试
+  backoffLimit: 5
+  ttlSecondsAfterFinished: 86400
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: mysql-init
+          # 与 mysql StatefulSet 同版本客户端，保证 SQL 兼容性
+          image: harbor.lab/library/mysql:8.0
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              # 等待 mysql 就绪（最长 5 分钟）
+              for i in $(seq 1 60); do
+                if mysqladmin ping -h mysql -uroot -p"$MYSQL_ROOT_PASSWORD" --silent 2>/dev/null; then
+                  echo "mysql is ready"
+                  break
+                fi
+                echo "waiting for mysql... ($i)"
+                sleep 5
+              done
+              # 导入业务 SQL（幂等：自带 IF NOT EXISTS / DROP TABLE IF EXISTS）
+              echo "importing yami_shop.sql ..."
+              mysql -h mysql -uroot -p"$MYSQL_ROOT_PASSWORD" < /init/yami_shop.sql
+              echo "import done"
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef: {name: mysql-secret, key: root-password}
+          volumeMounts:
+            - name: init-sql
+              mountPath: /init
+              readOnly: true
+      volumes:
+        - name: init-sql
+          configMap:
+            name: mysql-init-sql

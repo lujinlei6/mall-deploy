@@ -1,16 +1,17 @@
 {{- if .Values.ingress.enabled }}
-# ---------- 前端入口：/ 全部流量 → mall4v ----------
+# ---------- 后台入口：admin.mall.lab/ 全部流量 → mall4v ----------
+# /api 由 mall4v 的 nginx 在容器内反代到 mall4j-admin，Ingress 只负责路由到前端
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: mall-web
+  name: mall-web-admin
   namespace: {{ .Release.Namespace }}
   annotations:
     nginx.ingress.kubernetes.io/ssl-redirect: "false"   # 实验环境走 http，不强制跳 https
 spec:
   ingressClassName: {{ .Values.ingress.className }}
   rules:
-    - host: {{ .Values.ingress.host }}
+    - host: {{ .Values.ingress.adminHost }}
       http:
         paths:
           - path: /
@@ -20,26 +21,25 @@ spec:
                 name: mall4v
                 port: {number: 80}
 ---
-# ---------- 后端入口：/api/xxx → 去掉 /api → mall4j-admin ----------
+# ---------- 商城入口：mall.lab/ 全部流量 → mall4uni ----------
+# /api 由 mall4uni 的 nginx 在容器内反代到 mall4j-api
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: mall-api
+  name: mall-web-mall
   namespace: {{ .Release.Namespace }}
   annotations:
-    nginx.ingress.kubernetes.io/use-regex: "true"
-    nginx.ingress.kubernetes.io/rewrite-target: /$2
     nginx.ingress.kubernetes.io/ssl-redirect: "false"
 spec:
   ingressClassName: {{ .Values.ingress.className }}
   rules:
-    - host: {{ .Values.ingress.host }}
+    - host: {{ .Values.ingress.mallHost }}
       http:
         paths:
-          - path: {{ .Values.ingress.apiPrefix }}(/|$)(.*)
-            pathType: ImplementationSpecific     # 正则路径必须用这个类型
+          - path: /
+            pathType: Prefix
             backend:
               service:
-                name: mall4j-admin
-                port: {number: 8085}
+                name: mall4uni
+                port: {number: 80}
 {{- end }}

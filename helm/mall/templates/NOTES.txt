@@ -3,12 +3,18 @@ mall4j 已部署到命名空间 {{ .Release.Namespace }}（release: {{ .Release.
 查看状态：
   kubectl -n {{ .Release.Namespace }} get pods,svc,ingress,hpa
 
-浏览器访问（需在 hosts 里把 {{ .Values.ingress.host }} 指向 Ingress 的 VIP）：
-  http://{{ .Values.ingress.host }}         mall4j 后台（默认账号 admin / 123456）
+浏览器访问（需在 hosts 里把域名指向 Ingress 的 VIP）：
+  http://{{ .Values.ingress.adminHost }}   mall4j 后台（mall4v，默认账号 admin / 123456）
+  http://{{ .Values.ingress.mallHost }}    mall4j 商城（mall4uni）
+
+接口说明：两个前端都在各自 nginx 容器内把 /api 反代到对应后端，
+         Ingress 不再做 /api 重写。
 
 本次镜像版本：
-  后端 {{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}
-  前端 {{ .Values.frontend.image.repository }}:{{ .Values.frontend.image.tag }}
+  后台后端 {{ .Values.backendAdmin.image.repository }}:{{ .Values.backendAdmin.image.tag }}
+  商城后端 {{ .Values.backendApi.image.repository }}:{{ .Values.backendApi.image.tag }}
+  后台前端 {{ .Values.frontendAdmin.image.repository }}:{{ .Values.frontendAdmin.image.tag }}
+  商城前端 {{ .Values.frontendMall.image.repository }}:{{ .Values.frontendMall.image.tag }}
 
 回滚：helm history {{ .Release.Name }} -n {{ .Release.Namespace }}
       helm rollback {{ .Release.Name }} <REVISION> -n {{ .Release.Namespace }}
