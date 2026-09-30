@@ -55,11 +55,13 @@ pipeline {
         }
         // 拉取 mall4j 源码仓库（含四种 Dockerfile）。优先按标签检出，标签留空则按分支检出
         dir('src-mall4j') {
-          if (params.SOURCE_TAG?.trim()) {
-            echo "按标签检出: ${params.SOURCE_TAG}"
-            git url: "${env.GIT_BASE_URL}/mall4j.git", branch: "refs/tags/${params.SOURCE_TAG}"
-          } else {
-            git url: "${env.GIT_BASE_URL}/mall4j.git", branch: params.SOURCE_BRANCH
+          script {
+            if (params.SOURCE_TAG?.trim()) {
+              echo "按标签检出: ${params.SOURCE_TAG}"
+              git url: "${env.GIT_BASE_URL}/mall4j.git", branch: "refs/tags/${params.SOURCE_TAG}"
+            } else {
+              git url: "${env.GIT_BASE_URL}/mall4j.git", branch: params.SOURCE_BRANCH
+            }
           }
         }
 
