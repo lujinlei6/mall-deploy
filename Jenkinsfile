@@ -51,7 +51,17 @@ pipeline {
           script {
             if (params.SOURCE_TAG?.trim()) {
               echo "按标签检出: ${params.SOURCE_TAG}"
-              git url: "${env.GIT_BASE_URL}/mall4j.git", branch: "refs/tags/${params.SOURCE_TAG}"
+              // git 插件会把 refs/tags/xxx 解析成 origin/refs/tags/xxx 导致找不到修订版本，
+              // 故标签改用原生 git 命令检出
+              retry(3) {
+                sh """
+                  set -e
+                  if [ ! -d .git ]; then git clone ${env.GIT_BASE_URL}/mall4j.git .; fi
+                  git fetch origin --tags --force
+                  git checkout -f ${params.SOURCE_TAG}
+                  git log -1 --oneline
+                """
+              }
             } else {
               git url: "${env.GIT_BASE_URL}/mall4j.git", branch: params.SOURCE_BRANCH
             }
