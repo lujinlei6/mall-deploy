@@ -25,10 +25,6 @@ pipeline {
     string(name: 'SOURCE_BRANCH', defaultValue: 'master', description: 'mall4j 源码仓库分支')
   }
 
-  triggers {
-    cron('H/5 * * * *')                 // 每 5 分钟唤醒做"变更检测"
-  }
-
   options {
     timestamps()
     ansiColor('xterm')
