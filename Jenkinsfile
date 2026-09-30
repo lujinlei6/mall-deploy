@@ -22,7 +22,9 @@ pipeline {
 
   parameters {
     // 源码分支：可在 Jenkins 里改，不用动 Jenkinsfile
-    string(name: 'SOURCE_BRANCH', defaultValue: 'master', description: 'mall4j 源码仓库分支')
+    string(name: 'SOURCE_BRANCH', defaultValue: 'master', description: 'mall4j 源码仓库分支（SOURCE_TAG 留空时生效）')
+    // 可选的 Git 标签：填了则按该标签检出（优先于 SOURCE_BRANCH），留空则按分支检出一致
+    string(name: 'SOURCE_TAG', defaultValue: '', description: '要构建的 Git 标签（可选，如 v1.0.0）；留空则用 SOURCE_BRANCH')
   }
 
   options {
@@ -51,9 +53,14 @@ pipeline {
             error('未配置全局环境变量 GIT_BASE_URL —— 见文件头说明')
           }
         }
-        // 拉取 mall4j 源码仓库（含四种 Dockerfile）
+        // 拉取 mall4j 源码仓库（含四种 Dockerfile）。优先按标签检出，标签留空则按分支检出
         dir('src-mall4j') {
-          git url: "${env.GIT_BASE_URL}/mall4j.git", branch: params.SOURCE_BRANCH
+          if (params.SOURCE_TAG?.trim()) {
+            echo "按标签检出: ${params.SOURCE_TAG}"
+            git url: "${env.GIT_BASE_URL}/mall4j.git", branch: "refs/tags/${params.SOURCE_TAG}"
+          } else {
+            git url: "${env.GIT_BASE_URL}/mall4j.git", branch: params.SOURCE_BRANCH
+          }
         }
 
         script {
@@ -66,7 +73,7 @@ pipeline {
 
           env.GIT_TAG = "git-${sh(script: 'git -C src-mall4j rev-parse --short=7 HEAD', returnStdout: true).trim()}"
           currentBuild.description = "mall4j:${env.BUILD_NUMBER}/${env.GIT_TAG}"
-          echo "触发方式=${autoTriggered ? '定时' : '人工'}｜源码分支=${params.SOURCE_BRANCH}｜有变更=${currentShas != lastShas}｜本次需要构建=${needsBuild}"
+          echo "触发方式=${autoTriggered ? '定时' : '人工'}｜源码分支=${params.SOURCE_BRANCH}｜源码标签=${params.SOURCE_TAG?.trim() ?: '(无,按分支)'}｜有变更=${currentShas != lastShas}｜本次需要构建=${needsBuild}"
         }
 
         sh 'java -version; git --version; docker version --format "docker-server {{.Server.Version}}"; kubectl version --client=true; helm version --short'
