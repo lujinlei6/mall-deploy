@@ -1,0 +1,57 @@
+#!/usr/bin/env groovy
+// ============================================================
+// mall 回滚流水线：把 helm release 滚回指定 revision
+//   与 k8s 主构建分开的独立 Job（名称：mall-rollback）
+//   参数：REVISION(必填) + CONFIRM(需勾选) 由 Job 级 ParametersDefinitionProperty 提供，
+//         因此本脚本【不】写 parameters{} 块，避免 Declarative 跟踪器覆盖 Job 级参数。
+//   前置：执行器节点需能连到集群，且有 helm/kubectl（与 k8s 同节点，OK）
+//   先查号：helm history mall -n kube-mall  （找到要回退到的 REVISION）
+// ============================================================
+
+pipeline {
+  agent any
+
+  options {
+    timestamps()
+    timeout(time: 10, unit: 'MINUTES')
+    buildDiscarder(logRotator(numToKeepStr: '20'))
+  }
+
+  stages {
+    stage('校验参数') {
+      steps {
+        script {
+          if (!params.REVISION?.trim()) {
+            error('必须填写 REVISION（先用 helm history mall -n kube-mall 查号）')
+          }
+          if (!params.CONFIRM) {
+            error('未勾选确认框 CONFIRM，放弃回滚（勾选后重试）')
+          }
+          currentBuild.description = "rollback → revision ${params.REVISION}"
+        }
+      }
+    }
+
+    stage('Helm Rollback') {
+      steps {
+        sh """
+          set -e
+          echo '=== 回滚前 helm 历史 ==='
+          helm history mall -n kube-mall | tail -n 6
+          echo '=== 回滚到 revision ${params.REVISION} ==='
+          helm rollback mall ${params.REVISION} -n kube-mall
+          echo '=== 回滚后状态 ==='
+          helm status mall -n kube-mall | head -n 20
+          kubectl -n kube-mall rollout status deploy/mall4j-admin --timeout=180s
+          echo '=== Pod 状态 ==='
+          kubectl -n kube-mall get pods -o wide
+        """
+      }
+    }
+  }
+
+  post {
+    success { echo '回滚成功：mall 已恢复到目标 revision' }
+    unsuccessful { echo '回滚失败：请检查 helm history 或集群状态' }
+  }
+}
